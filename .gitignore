@@ -27,3 +27,4 @@ dist-ssr
 
 # Ignore local environment
 .env.development
+.env
