@@ -1,43 +1,47 @@
-// here we list the student applied for the jobs, and list more function of the students( fileds of the student ) calling directly from the student slice for his datas
-
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Select from "react-select";
-import {useDispatch, useSelector} from "react-redux";
-import { fetchJobs, fetchApplicantsByJob } from '../../../Redux/Jobslice.js';
+import { 
+  Users, 
+  Download, 
+  Search, 
+  Filter, 
+  FileText, 
+  Building, 
+  Calendar,
+  User,
+  Mail,
+  Phone,
+  GraduationCap,
+  Award,
+  MapPin,
+  Briefcase,
+  Eye,
+  X,
+  ChevronDown,
+  TrendingUp
+} from "lucide-react";
 
-const StudentsAppliedForJob = () => {
-  const dispatch = useDispatch();
+const StudentsAppliedForJob = ({ colleges, departments, programs, students }) => {
   const { universityName } = useParams();
   const [jobId, setJobId] = useState("");
+  const [jobs, setJobs] = useState([]);
+  const [applicants, setApplicants] = useState([]);
   const [filteredApplicants, setFilteredApplicants] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const [selectedJobs, setSelectedJobs] = useState([]);
   const [selectedColleges, setSelectedColleges] = useState([]);
   const [selectedDepartments, setSelectedDepartments] = useState([]);
-  const [selectedPrograms, setSelectedPrograms] = useState([]); // ✅ Program filter
-
+  const [selectedPrograms, setSelectedPrograms] = useState([]);
   const [selectedColumns, setSelectedColumns] = useState([]);
-
-   const colleges = useSelector((state) => state.colleges.colleges) || [];
-    const departments = useSelector((state) => state.department.departments) || [];
-    const programs = useSelector((state) => state.programs.programs) || [];
-    const students = useSelector((state) => state.students.students) || [];
-   const { jobs, applicants, loading, error } = useSelector(state => state.jobs);
-
-   console.log("jobs in the students applied for job:", jobs);
-
-
-
-  const studentList = Array.isArray(students)
-    ? students
-    : Array.isArray(students?.students)
-      ? students.students
-      : [];
-
+  const [searchTerm, setSearchTerm] = useState("");
+  const [viewStudent, setViewStudent] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   const allColumns = [
     { label: "Name", value: "name" },
@@ -67,14 +71,11 @@ const StudentsAppliedForJob = () => {
     { label: "Masters CGPA", value: "masters_cgpa" },
     { label: "Can Apply", value: "can_apply" },
   ];
-  useEffect(() => { setSelectedColumns([]); }, []);
 
   const BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const token = localStorage.getItem("University authToken");
 
-  console.log("studnts data in the student applied for job:", students);
-
-  // Mapping college, department, and program IDs to names
+  // Mapping functions
   const collegeMap = colleges.reduce((acc, college) => {
     acc[college._id] = college.name;
     return acc;
@@ -90,55 +91,70 @@ const StudentsAppliedForJob = () => {
     return acc;
   }, {});
 
-  // 1️⃣ load all jobs once
   useEffect(() => {
-    dispatch(fetchJobs({ token, universityName }));
-  }, [dispatch, token, universityName])
+    const fetchJobs = async () => {
+      try {
+        const resJobs = await axios.get(
+          `${BASE_URL}/job/getAllJobs?universityName=${universityName}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const jobsData = Array.isArray(resJobs.data.data) ? resJobs.data.data : [];
+        const sortedJobs = jobsData.sort((a, b) => new Date(b.closingDate) - new Date(a.closingDate));
+        setJobs(sortedJobs);
+      } catch (err) {
+        console.error("Error fetching jobs:", err);
+        setError("Failed to fetch jobs. Please try again later.");
+      }
+    };
+    fetchJobs();
+  }, [universityName]);
 
-  // 2️⃣ Once jobs are loaded, select the first one (earliest closing date)
-useEffect(() => {
-  if (jobs.length > 0) {
-    const sortedJobs = [...jobs].sort((a, b) => new Date(b.closingDate) - new Date(a.closingDate));
-    setJobId(sortedJobs[0]._id);
-  }
-}, [jobs]);
-
- // 2️⃣ when jobId changes, load its applicants
   useEffect(() => {
-    if (!jobId) return;
-    dispatch(fetchApplicantsByJob({ token, universityName, jobId }));
-  }, [dispatch, token, universityName, jobId]);
+    const fetchApplicants = async () => {
+      if (!jobId) return;
+      setLoading(true);
+      try {
+        const res = await axios.get(`${BASE_URL}/job/jobs/${jobId}/applicants/?universityName=${universityName}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-
-   // 3️⃣ whenever `applicants` or `students` updates, enrich & filter
-  useEffect(() => {
-    const enriched = applicants.map(app => {
-      const stu = studentList.find(s => s._id === app._id);
-      return stu
-        ? {
-            ...app,
-            name: stu.name,
-            registered_number: stu.registered_number,
-            email: stu.email,
-            phone: stu.phone,
-            dateOfBirth: stu.dateOfBirth,
-            gender: stu.gender,
-            caste: stu.caste,
-            collegeId: stu.collegeId,
-            departmentId: stu.departmentId,
-            programId: stu.programId,
-            graduation_year: stu.graduation_year,
-            tenth: stu.tenth,
-            twelfth: stu.twelfth,
-            bachelors: stu.bachelors,
-            masters: stu.masters,
-            academicProjects: stu.academicProjects,
-            canApply: stu.canApply,
+        const rawApplicants = res.data.applicants || [];
+        const enriched = rawApplicants.map((applicant) => {
+          const student = students.find((stu) => stu._id === applicant._id);
+          if (student) {
+            return {
+              ...applicant,
+              name: student.name,
+              registered_number: student.registered_number,
+              email: student.email,
+              phone: student.phone,
+              dateOfBirth: student.dateOfBirth,
+              gender: student.gender,
+              caste: student.caste,
+              collegeId: student.collegeId,
+              departmentId: student.departmentId,
+              programId: student.programId,
+              graduation_year: student.graduation_year,
+              tenth: student.tenth,
+              twelfth: student.twelfth,
+              bachelors: student.bachelors,
+              masters: student.masters,
+              academicProjects: student.academicProjects,
+              canApply: student.canApply,
+            };
           }
-        : app;
-    });
-    setFilteredApplicants(enriched);
-  }, [applicants, studentList]);
+          return applicant;
+        });
+        setApplicants(enriched);
+        setFilteredApplicants(enriched);
+      } catch (err) {
+        setError("Failed to fetch applicants");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchApplicants();
+  }, [jobId, universityName, students]);
 
   const formatDate = (dob) => {
     if (!dob) return "";
@@ -156,56 +172,25 @@ useEffect(() => {
     }
     return age;
   };
-  
 
-  // Handle dropdown changes
-  const handleJobChange = (e) => setJobId(e.target.value);
-  const handleJobFilter = (options) => {
-    setSelectedJobs(options);
-    filterApplicants(options, selectedColleges, selectedDepartments, selectedPrograms);
-  };
-  const handleCollegeFilter = (options) => {
-    setSelectedColleges(options);
-    filterApplicants(selectedJobs, options, selectedDepartments, selectedPrograms);
-  };
-  const handleDepartmentFilter = (options) => {
-    setSelectedDepartments(options);
-    filterApplicants(selectedJobs, selectedColleges, options, selectedPrograms);
-  };
-  const handleProgramFilter = (options) => {
-    setSelectedPrograms(options);
-    filterApplicants(selectedJobs, selectedColleges, selectedDepartments, options);
-  };
-
-  const filterApplicants = (jobs, colleges, departments, programs) => {
+  const handleFilterChange = () => {
     const filtered = applicants.filter((applicant) => {
-      const jobMatch = jobs.length === 0 || jobs.some((job) => job.value === applicant.jobId);
-      const collegeMatch = colleges.length === 0 || colleges.some((college) => college.value === applicant.collegeId);
-      const departmentMatch = departments.length === 0 || departments.some((dept) => dept.value === applicant.departmentId);
-      const programMatch = programs.length === 0 || programs.some((prog) => prog.value === applicant.programId);
-      return jobMatch && collegeMatch && departmentMatch && programMatch;
+      const matchesSearch = !searchTerm || 
+        applicant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        applicant.registered_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCollege = selectedColleges.length === 0 || selectedColleges.some((college) => applicant.collegeId === college.value);
+      const matchesDepartment = selectedDepartments.length === 0 || selectedDepartments.some((dept) => applicant.departmentId === dept.value);
+      const matchesProgram = selectedPrograms.length === 0 || selectedPrograms.some((program) => applicant.programId === program.value);
+      
+      return matchesSearch && matchesCollege && matchesDepartment && matchesProgram;
     });
     setFilteredApplicants(filtered);
   };
 
-  const mappedData = filteredApplicants.map((applicant, index) => ({
-    SNo: index + 1,
-    Name: applicant.name,
-    "Registered Number": applicant.registered_number,
-    Email: applicant.email,
-    Phone: applicant.phone,
-    College: collegeMap[applicant.collegeId] || "N/A",
-    Department: departmentMap[applicant.departmentId] || "N/A",
-    Program: programMap[applicant.programId] || "N/A",
-    Nationality: applicant.nationality,
-    EnrollmentYear: applicant.enrollment_year,
-    GraduationYear: applicant.graduation_year,
-    FuturePlan: applicant.futurePlan,
-    PlacementOpted: applicant.isPlacementOpted,
-    DOB: applicant.dob,
-
-  }));
-  
+  useEffect(() => {
+    handleFilterChange();
+  }, [selectedColleges, selectedDepartments, selectedPrograms, searchTerm, applicants]);
 
   const jobOptions = jobs.map((job) => ({ value: job._id, label: job.title }));
   const collegeOptions = colleges.map((college) => ({ value: college._id, label: college.name }));
@@ -213,6 +198,11 @@ useEffect(() => {
   const programOptions = programs.map((prog) => ({ value: prog._id, label: prog.name }));
 
   const exportToExcel = () => {
+    if (selectedColumns.length === 0) {
+      alert("Please select columns to export");
+      return;
+    }
+
     const selectedKeys = selectedColumns.map(col => col.value);
     const mapped = filteredApplicants.map((stu, idx) => {
       const row = { SNo: idx + 1 };
@@ -250,147 +240,385 @@ useEffect(() => {
     XLSX.utils.book_append_sheet(wb, ws, "Applicants");
 
     const today = new Date().toISOString().split("T")[0];
-    const filename = `${filteredApplicants[0]?.jobTitle || "Job"}_${filteredApplicants[0]?.companyName || "Company"}_${today}.xlsx`;
+    const selectedJob = jobs.find(job => job._id === jobId);
+    const filename = `${selectedJob?.title || "Job"}_${selectedJob?.company || "Company"}_${today}.xlsx`;
 
     const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     saveAs(new Blob([excelBuffer], { type: "application/octet-stream" }), filename);
   };
-  
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Applicants for Job</h2> 
-
-<div className="overflow-x-auto whitespace-nowrap mb-6">
-  <div className="flex space-x-3">
-   {[...jobs]
-  .sort((a, b) => new Date(b.closingDate) - new Date(a.closingDate))
-  .map((job, index) => (
-    <div
-      key={job._id}
-      onClick={() => setJobId(job._id)}
-      className={`w-[300px] flex-shrink-0 p-2 border rounded shadow hover:shadow-lg cursor-pointer transition-all duration-200 ${
-        jobId === job._id ? 'bg-blue-100 border-blue-500' : 'bg-white'
-      }`}
-    >
-      <h3 className="font-semibold text-sm truncate">{index + 1}. {job.title}</h3>
-      <p className="text-xs text-gray-700 truncate">{job.company}</p>
-      <p className="text-[10px] text-gray-500">
-        {new Date(job.closingDate).toLocaleDateString()}
-      </p>
-    </div>
-  ))}
-
-  </div>
-</div>
-
-
-
-
-      {/* Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-        <div>
-          <label className="block mb-2 font-medium">Filter by Job:</label>
-          <Select isMulti options={jobOptions} value={selectedJobs} onChange={handleJobFilter} placeholder="Select jobs..." />
-        </div>
-        <div>
-          <label className="block mb-2 font-medium">Filter by College:</label>
-          <Select isMulti options={collegeOptions} value={selectedColleges} onChange={handleCollegeFilter} placeholder="Select colleges..." />
-        </div>
-        <div>
-          <label className="block mb-2 font-medium">Filter by Department:</label>
-          <Select isMulti options={departmentOptions} value={selectedDepartments} onChange={handleDepartmentFilter} placeholder="Select departments..." />
-        </div>
-        <div>
-          <label className="block mb-2 font-medium">Filter by Program:</label>
-          <Select isMulti options={programOptions} value={selectedPrograms} onChange={handleProgramFilter} placeholder="Select programs..." />
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-8 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Job Applications</h1>
+            <p className="text-blue-100 text-lg">View and manage student applications for jobs</p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold">{filteredApplicants.length}</div>
+            <div className="text-blue-200 text-sm">Total Applicants</div>
+          </div>
         </div>
       </div>
 
-      {/* Table */}
-      {loading && <p className="text-blue-600">Loading applicants...</p>}
-      {error && <p className="text-red-600">{error}</p>}
-      {!loading && !error && filteredApplicants.length > 0 && (
-        <>
-          <div className="mb-4">
-            <p className="text-lg font-semibold">Total Students Applied: {filteredApplicants.length}</p>
-            <Select isMulti options={allColumns} value={selectedColumns} onChange={setSelectedColumns} className="mb-4" placeholder="Select columns to download..."/>
-      <button onClick={exportToExcel} className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Export to Excel</button>
-          </div>
-<div className="overflow-x-auto overflow-y-auto max-h-[600px] border rounded
-">
-          <table className="min-w-full border">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border px-2 py-1 text-2xs ">#</th> 
-              <th className="border px-2 py-1 text-2xs">Name</th>
-              <th className="border px-2 py-1 text-2xs">Registration</th>
-              <th className="border px-2 py-1 text-2xs">Email</th>
-              <th className="border px-2 py-1 text-2xs">Phone</th>
-              <th className="border px-2 py-1 text-2xs">DOB</th>
-              <th className="border px-2 py-1 text-2xs">Age</th>
-              <th className="border px-2 py-1 text-2xs">Gender</th>
-              <th className="border px-2 py-1 text-2xs">Caste</th>
-              <th className="border px-2 py-1 text-2xs">College</th>
-              <th className="border px-2 py-1 text-2xs">Department</th>
-              <th className="border px-2 py-1 text-2xs">Program</th>
-              <th className="border px-2 py-1 text-2xs">Graduation Year</th>
-              <th className="border px-2 py-1 text-2xs">10th School</th>
-              <th className="border px-2 py-1 text-2xs">10th CGPA</th>
-              <th className="border px-2 py-1 text-2xs">12th School</th>
-              <th className="border px-2 py-1 text-2xs">12th Branch</th>
-              <th className="border px-2 py-1 text-2xs">12th CGPA</th>
-              <th className="border px-2 py-1 text-2xs">UG College</th>
-              <th className="border px-2 py-1 text-2xs">UG Degree</th>
-              <th className="border px-2 py-1 text-2xs">UG CGPA</th>
-              <th className="border px-2 py-1 text-2xs">UG Project Title</th>
-              <th className="border px-2 py-1 text-2xs">UG Project Org</th>
-              <th className="border px-2 py-1 text-2xs">Masters College</th>
-              <th className="border px-2 py-1 text-2xs">Masters Specialization</th>
-              <th className="border px-2 py-1 text-2xs">Masters CGPA</th>
-              <th className="border px-2 py-1 text-2xs">Can Apply</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredApplicants.map((stu, idx) => (
-              <tr key={stu._id} className="border">
-                <td className="border px-2 py-1 text-2xs text-center">{idx + 1}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.name}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.registered_number}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.email}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.phone}</td>
-                <td className="border px-2 py-1 text-2xs">{formatDate(stu.dateOfBirth)}</td>
-                <td className="border px-2 py-1 text-2xs">{calculateAge(stu.dateOfBirth)}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.gender}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.caste}</td>
-                <td className="border px-2 py-1 text-2xs">{collegeMap[stu.collegeId]}</td>
-                <td className="border px-2 py-1 text-2xs">{departmentMap[stu.departmentId]}</td>
-                <td className="border px-2 py-1 text-2xs">{programMap[stu.programId]}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.graduation_year}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.tenth?.institutionName}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.tenth?.percentageOrCGPA}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.twelfth?.institutionName}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.twelfth?.stream}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.twelfth?.percentageOrCGPA}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.bachelors?.institutionName}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.bachelors?.degree}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.bachelors?.percentageOrCGPA}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.academicProjects?.[0]?.description}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.academicProjects?.[0]?.level}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.masters?.institutionName}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.masters?.degree}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.masters?.percentageOrCGPA}</td>
-                <td className="border px-2 py-1 text-2xs">{stu.canApply ? "Yes" : "No"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
+      {/* Job Selection */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+        <div className="flex items-center mb-6">
+          <Briefcase className="w-5 h-5 text-gray-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">Select Job</h2>
         </div>
-        </>
+        
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Choose a job to view applications
+          </label>
+          <div className="relative">
+            <select
+              value={jobId}
+              onChange={(e) => setJobId(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+            >
+              <option value="" disabled>Select a job</option>
+              {jobs.map((job, index) => (
+                <option key={job._id} value={job._id}>
+                  {index + 1}. {job.title} - {job.company} (Closes: {new Date(job.closingDate).toLocaleDateString()})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* Filters Section */}
+      {jobId && (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+          <div className="flex items-center mb-6">
+            <Filter className="w-5 h-5 text-gray-600 mr-2" />
+            <h2 className="text-xl font-semibold text-gray-900">Filters & Export</h2>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by name or registration number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Filter Dropdowns */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by College</label>
+              <Select 
+                isMulti 
+                options={collegeOptions} 
+                value={selectedColleges} 
+                onChange={setSelectedColleges} 
+                placeholder="Select colleges..." 
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Department</label>
+              <Select 
+                isMulti 
+                options={departmentOptions} 
+                value={selectedDepartments} 
+                onChange={setSelectedDepartments} 
+                placeholder="Select departments..." 
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Program</label>
+              <Select 
+                isMulti 
+                options={programOptions} 
+                value={selectedPrograms} 
+                onChange={setSelectedPrograms} 
+                placeholder="Select programs..." 
+                className="text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Export Section */}
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-end">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FileText className="w-4 h-4 inline mr-1" />
+                Select Columns to Export
+              </label>
+              <Select
+                isMulti
+                options={allColumns}
+                value={selectedColumns}
+                onChange={setSelectedColumns}
+                placeholder="Select columns..."
+                className="text-sm"
+              />
+            </div>
+            <button
+              onClick={exportToExcel}
+              className="flex items-center bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export to Excel
+            </button>
+          </div>
+        </div>
       )}
-      {!loading && !error && filteredApplicants.length === 0 && jobId && (
-        <p className="text-gray-600">No applicants found for this job.</p>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Loading applicants...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <X className="w-5 h-5 text-red-600 mr-2" />
+            <span className="text-red-800">{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Results */}
+      {!loading && !error && filteredApplicants.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Applications ({filteredApplicants.length})
+              </h3>
+              <div className="flex items-center text-sm text-gray-600">
+                <TrendingUp className="w-4 h-4 mr-1" />
+                {jobs.find(job => job._id === jobId)?.title} - {jobs.find(job => job._id === jobId)?.company}
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Personal</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Education</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredApplicants.map((student, idx) => (
+                  <tr key={student._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {idx + 1}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <User className="w-5 h-5 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{student.name}</div>
+                          <div className="text-sm text-gray-500">{student.registered_number}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="flex items-center mb-1">
+                          <Mail className="w-3 h-3 mr-1 text-gray-400" />
+                          <span className="truncate max-w-[150px]">{student.email}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Phone className="w-3 h-3 mr-1 text-gray-400" />
+                          {student.phone}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="font-medium">{formatDate(student.dateOfBirth)}</div>
+                        <div className="text-gray-500">Age: {calculateAge(student.dateOfBirth)}</div>
+                        <div className="text-gray-500">{student.gender}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="font-medium">{collegeMap[student.collegeId]}</div>
+                        <div className="text-gray-500">{departmentMap[student.departmentId]}</div>
+                        <div className="text-gray-500">{programMap[student.programId]}</div>
+                        <div className="text-gray-500">Class of {student.graduation_year}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="mb-1">
+                          <span className="font-medium">10th:</span> {student.tenth?.percentageOrCGPA}
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-medium">12th:</span> {student.twelfth?.percentageOrCGPA}
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-medium">UG:</span> {student.bachelors?.percentageOrCGPA}
+                        </div>
+                        {student.masters?.percentageOrCGPA && (
+                          <div>
+                            <span className="font-medium">Masters:</span> {student.masters?.percentageOrCGPA}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        student.canApply 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {student.canApply ? 'Eligible' : 'Ineligible'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => {
+                          setViewStudent(student);
+                          setShowModal(true);
+                        }}
+                        className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* No Results */}
+      {!loading && !error && jobId && filteredApplicants.length === 0 && (
+        <div className="text-center py-12">
+          <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No applicants found</h3>
+          <p className="text-gray-500">No students have applied for this job yet.</p>
+        </div>
+      )}
+
+      {/* Student Details Modal */}
+      {showModal && viewStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700">
+              <div className="flex items-center justify-between">
+                <div className="text-white">
+                  <h2 className="text-2xl font-bold">{viewStudent.name}</h2>
+                  <p className="text-blue-100">{viewStudent.registered_number}</p>
+                </div>
+                <button
+                  className="text-white hover:text-gray-200 transition-colors"
+                  onClick={() => setShowModal(false)}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Personal Information */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <User className="w-5 h-5 mr-2 text-blue-600" />
+                    Personal Information
+                  </h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Name:</span> {viewStudent.name}</p>
+                    <p><span className="font-medium">Registration:</span> {viewStudent.registered_number}</p>
+                    <p><span className="font-medium">Email:</span> {viewStudent.email}</p>
+                    <p><span className="font-medium">Phone:</span> {viewStudent.phone}</p>
+                    <p><span className="font-medium">DOB:</span> {formatDate(viewStudent.dateOfBirth)}</p>
+                    <p><span className="font-medium">Age:</span> {calculateAge(viewStudent.dateOfBirth)}</p>
+                    <p><span className="font-medium">Gender:</span> {viewStudent.gender}</p>
+                  </div>
+                </div>
+
+                {/* Academic Information */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <GraduationCap className="w-5 h-5 mr-2 text-blue-600" />
+                    Academic Information
+                  </h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">College:</span> {collegeMap[viewStudent.collegeId]}</p>
+                    <p><span className="font-medium">Department:</span> {departmentMap[viewStudent.departmentId]}</p>
+                    <p><span className="font-medium">Program:</span> {programMap[viewStudent.programId]}</p>
+                    <p><span className="font-medium">Graduation Year:</span> {viewStudent.graduation_year}</p>
+                  </div>
+                </div>
+
+                {/* Education Details */}
+                <div className="bg-gray-50 rounded-lg p-4 md:col-span-2">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <Award className="w-5 h-5 mr-2 text-blue-600" />
+                    Education Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">10th Standard</h4>
+                      <p className="text-sm">School: {viewStudent.tenth?.institutionName || 'N/A'}</p>
+                      <p className="text-sm">CGPA: {viewStudent.tenth?.percentageOrCGPA || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">12th Standard</h4>
+                      <p className="text-sm">School: {viewStudent.twelfth?.institutionName || 'N/A'}</p>
+                      <p className="text-sm">Stream: {viewStudent.twelfth?.stream || 'N/A'}</p>
+                      <p className="text-sm">CGPA: {viewStudent.twelfth?.percentageOrCGPA || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Undergraduate</h4>
+                      <p className="text-sm">College: {viewStudent.bachelors?.institutionName || 'N/A'}</p>
+                      <p className="text-sm">Degree: {viewStudent.bachelors?.degree || 'N/A'}</p>
+                      <p className="text-sm">CGPA: {viewStudent.bachelors?.percentageOrCGPA || 'N/A'}</p>
+                    </div>
+                  </div>
+                  {viewStudent.masters?.institutionName && (
+                    <div className="mt-4">
+                      <h4 className="font-medium text-gray-700 mb-2">Masters</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <p className="text-sm">College: {viewStudent.masters.institutionName}</p>
+                        <p className="text-sm">Degree: {viewStudent.masters.degree}</p>
+                        <p className="text-sm">CGPA: {viewStudent.masters.percentageOrCGPA}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

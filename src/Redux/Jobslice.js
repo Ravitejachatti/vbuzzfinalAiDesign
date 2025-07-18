@@ -10,6 +10,7 @@ export const fetchJobs = createAsyncThunk(
   "jobs/fetchAll",
   async ({ token, universityName }, thunkAPI) => {
     try {
+      console.log("🔔 Fetching all jobs with token:", token);
       const res = await axios.get(
         `${BASE_URL}/job/getAllJobs?universityName=${universityName}`,
         { headers: { Authorization: `Bearer ${token}` } }

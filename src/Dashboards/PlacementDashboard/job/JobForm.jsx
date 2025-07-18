@@ -3,16 +3,27 @@ import DatePicker from "react-datepicker";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import "react-datepicker/dist/react-datepicker.css";
-import { useDispatch,useSelector } from "react-redux"; 
+import { useDispatch, useSelector } from "react-redux"; 
 import { addjob } from "../../../Redux/Jobslice";
+import { 
+  Briefcase, 
+  Building, 
+  MapPin, 
+  DollarSign, 
+  Calendar, 
+  FileText, 
+  Users,
+  Eye,
+  Plus
+} from "lucide-react";
 
-
-const JobForm = () => {
+const JobForm = ({ onJobAdded, colleges, programs }) => {
   const { universityName } = useParams();
   const BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const token = localStorage.getItem("University authToken");
-  const dispatch=useDispatch() 
-  const {jobs,loading} = useSelector(state=>state.jobs)
+  const dispatch = useDispatch(); 
+  const { jobs, loading } = useSelector(state => state.jobs);
+
   const [formData, setFormData] = useState({
     passingYear: "",
     colleges: [],
@@ -31,38 +42,56 @@ const JobForm = () => {
     closingDate: new Date(),
   });
 
-   const colleges = useSelector((state) => state.colleges.colleges) || [];
-    const departments = useSelector((state) => state.department.departments) || [];
-    const programs = useSelector((state) => state.programs.programs) || [];
-    const students = useSelector((state) => state.students.students) || [];
-
   const [showPreview, setShowPreview] = useState(false);
-
+  const [departments, setDepartments] = useState([]);
   const [filteredPrograms, setFilteredPrograms] = useState([]);
-  const [filteredDepartments, setFilteredDepartments] = useState([]);
-  const [dropdownOpen, setDropdownOpen] = useState({ colleges: false, departments: false, programs: false });
+  const [dropdownOpen, setDropdownOpen] = useState({ 
+    colleges: false, 
+    departments: false, 
+    programs: false 
+  });
+  const [errors, setErrors] = useState({});
 
-  // Whenever departments change, recompute the allowed programs
   useEffect(() => {
-    setFilteredPrograms(
-      programs.filter((p) => formData.departments.includes(p.department._id || p.department))
+    const fetchDepartments = async () => {
+      try {
+        const response = await axios.get(
+          `${BASE_URL}/department/getAllDepartments?universityName=${encodeURIComponent(universityName)}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        setDepartments(response.data);
+      } catch (err) {
+        console.error("Error fetching departments:", err);
+        alert("Failed to fetch departments.");
+      }
+    };
+
+    fetchDepartments();
+  }, [universityName]);
+
+  useEffect(() => {
+    const filtered = programs.filter((program) =>
+      formData.departments.includes(program.department)
     );
+    setFilteredPrograms(filtered);
   }, [formData.departments, programs]);
 
-  useEffect(() => {
-  setFilteredDepartments(
-    departments.filter((d) => formData.colleges.includes(d.college))
-  );
-  // Reset dependent fields
-  setFormData((prev) => ({
-    ...prev,
-    departments: [],
-    programs: [],
-  }));
-}, [formData.colleges]);
-
-
-
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.title.trim()) newErrors.title = "Job title is required";
+    if (!formData.company.trim()) newErrors.company = "Company name is required";
+    if (!formData.ctc.trim()) newErrors.ctc = "CTC is required";
+    if (!formData.type.trim()) newErrors.type = "Job type is required";
+    if (formData.colleges.length === 0) newErrors.colleges = "At least one college must be selected";
+    if (formData.departments.length === 0) newErrors.departments = "At least one department must be selected";
+    if (formData.programs.length === 0) newErrors.programs = "At least one program must be selected";
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const toggleDropdown = (key) => {
     setDropdownOpen((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -79,19 +108,41 @@ const JobForm = () => {
       ? formData[key].filter((item) => item !== id)
       : [...formData[key], id];
     setFormData({ ...formData, [key]: updatedList });
+    
+    // Clear error when user makes selection
+    if (errors[key]) {
+      setErrors(prev => ({ ...prev, [key]: "" }));
+    }
   };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
   };
+
   const handlePreview = () => {
     setShowPreview(!showPreview);
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      dispatch(addjob({token,formData,universityName}))
-      alert("Job added successfully!", "success");  
+      dispatch(addjob({ token, formData, universityName }));
+      
+      onJobAdded();
+      alert("Job added successfully!");
+      
+      // Reset form
       setFormData({
         title: "",
         company: "",
@@ -110,6 +161,7 @@ const JobForm = () => {
         closingDate: new Date(),
       });
       setShowPreview(false);
+      setErrors({});
     } catch (err) {
       console.error("Error adding job:", err);
       alert("Error adding job. Please try again.");
@@ -117,309 +169,388 @@ const JobForm = () => {
   };
 
   return (
-    <div className="mx-auto p-2  bg-gray-100 rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold text-center text-gray-800 mb-1">Add job</h2>
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-lg space-y-2">
+    <div className="max-w-6xl mx-auto">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg mr-3">
+              <Briefcase className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Add New Job</h2>
+              <p className="text-sm text-gray-600">
+                Create a new job posting for students
+              </p>
+            </div>
+          </div>
+        </div>
 
-        {/* College, Department, Program */}
-        <div className="grid grid-cols-3 gap-5">
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Job Type */}
-          <div>
-            <label className="block font-semibold text-gray-700">Job Type(Internship/Full Time)</label>
-            <input
-              type="text"
-              placeholder="Job Type"
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              className="p-2 w-full border rounded"
-            />
-          </div>
-         <div >
-            <label className="block font-semibold text-gray-700">Colleges</label>
-            <div
-              onClick={() => toggleDropdown("colleges")}
-              className="p-2 border rounded bg-white cursor-pointer"
-            >
-              {formData.colleges.length
-                ? `${formData.colleges.length} selected`
-                : "Select colleges"}
-            </div>
-            {dropdownOpen.colleges && (
-              <div className="absolute z-10 bg-white border rounded shadow-md w-full max-h-40 overflow-y-auto">
-                <label className="flex items-center p-2 bg-gray-100">
-                  <input
-                    type="checkbox"
-                    onChange={() => toggleSelectAll("colleges", colleges)}
-                  />
-                  <span className="ml-2">Select All</span>
-                </label>
-                {colleges.map((c) => (
-                  <label key={c._id} className="flex items-center p-2 hover:bg-gray-50">
-                    <input
-                      type="checkbox"
-                      checked={formData.colleges.includes(c._id)}
-                      onChange={() => handleSelectionChange(c._id, "colleges")}
-                    />
-                    <span className="ml-2">{c.name}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Departments */}
-          <div className="relative">
-            <label className="block font-semibold text-gray-700">Departments</label>
-            <div
-              onClick={() => toggleDropdown("departments")}
-              className="p-2 border rounded bg-white cursor-pointer"
-            >
-              {formData.departments.length
-                ? `${formData.departments.length} selected`
-                : "Select departments"}
-            </div>
-            {dropdownOpen.departments && (
-              <div className="absolute z-10 bg-white border rounded shadow-md w-full max-h-40 overflow-y-auto">
-                <label className="flex items-center p-2 bg-gray-100">
-                  <input
-                    type="checkbox"
-                    onChange={() => toggleSelectAll("departments", departments)}
-                  />
-                  <span className="ml-2">Select All</span>
-                </label>
-                {filteredDepartments.map((d) => (
-                  <label key={d._id} className="flex items-center p-2 hover:bg-gray-50">
-                    <input
-                      type="checkbox"
-                      checked={formData.departments.includes(d._id)}
-                      onChange={() => handleSelectionChange(d._id, "departments")}
-                    />
-                    <span className="ml-2">{d.name}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Passing Year */}
-          <div>
-            <label className="block font-semibold text-gray-700">Passing Year</label>
-            <input
-              name="passingYear"
-              type="number"
-              value={formData.passingYear}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-      
-
-        {/* Programs (filtered) */}
-        <div >
-          <label className="block font-semibold text-gray-700">Programs</label>
-          <div
-            onClick={() => toggleDropdown("programs")}
-            className="p-2 border rounded bg-white cursor-pointer"
-          >
-            {formData.programs.length
-              ? `${formData.programs.length} selected`
-              : "Select programs"}
-          </div>
-          {dropdownOpen.programs && (
-            <div className="absolute z-10 bg-white border rounded shadow-md w-full max-h-40 overflow-y-auto">
-              <label className="flex items-center p-2 bg-gray-100">
-                <input
-                  type="checkbox"
-                  onChange={() => toggleSelectAll("programs", filteredPrograms)}
-                />
-                <span className="ml-2">Select All</span>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Briefcase className="w-4 h-4 inline mr-1" />
+                Job Type *
               </label>
-              {filteredPrograms.map((p) => (
-                <label key={p._id} className="flex items-center p-2 hover:bg-gray-50">
-                  <input
-                    type="checkbox"
-                    checked={formData.programs.includes(p._id)}
-                    onChange={() => handleSelectionChange(p._id, "programs")}
-                  />
-                  <span className="ml-2">{p.name}</span>
-                </label>
-              ))}
+              <select
+                name="type"
+                value={formData.type}
+                onChange={handleChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.type ? 'border-red-300' : 'border-gray-300'
+                }`}
+              >
+                <option value="">Select job type</option>
+                <option value="Full Time">Full Time</option>
+                <option value="Internship">Internship</option>
+                <option value="Part Time">Part Time</option>
+                <option value="Contract">Contract</option>
+              </select>
+              {errors.type && <p className="mt-1 text-sm text-red-600">{errors.type}</p>}
             </div>
-          )}
-        </div>
 
+            {/* Company */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Building className="w-4 h-4 inline mr-1" />
+                Company *
+              </label>
+              <input
+                type="text"
+                name="company"
+                value={formData.company}
+                onChange={handleChange}
+                placeholder="Enter company name"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.company ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.company && <p className="mt-1 text-sm text-red-600">{errors.company}</p>}
+            </div>
 
-          {/* Company */}
-          <div>
-            <label className="block font-semibold text-gray-700">Company</label>
-            <input
-              type="text"
-              placeholder="Company"
-              name="company"
-              value={formData.company}
-              onChange={handleChange}
-              className="p-2 w-full border rounded"
-              required
-            />
+            {/* Job Title */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FileText className="w-4 h-4 inline mr-1" />
+                Job Title *
+              </label>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="Enter job title"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.title ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
+            </div>
+
+            {/* Location */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <MapPin className="w-4 h-4 inline mr-1" />
+                Location
+              </label>
+              <input
+                type="text"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                placeholder="Enter job location"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* CTC */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <DollarSign className="w-4 h-4 inline mr-1" />
+                CTC (LPA) *
+              </label>
+              <input
+                type="text"
+                name="ctc"
+                value={formData.ctc}
+                onChange={handleChange}
+                placeholder="Enter CTC"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.ctc ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.ctc && <p className="mt-1 text-sm text-red-600">{errors.ctc}</p>}
+            </div>
+
+            {/* Minimum Percentage */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Minimum Percentage
+              </label>
+              <input
+                type="number"
+                name="minPercentage"
+                value={formData.minPercentage}
+                onChange={handleChange}
+                placeholder="Enter minimum percentage"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Passing Year */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Passing Year
+              </label>
+              <input
+                type="number"
+                name="passingYear"
+                value={formData.passingYear}
+                onChange={handleChange}
+                placeholder="Enter passing year"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Closing Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Closing Date
+              </label>
+              <DatePicker
+                selected={formData.closingDate}
+                onChange={(date) => setFormData({ ...formData, closingDate: date })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                dateFormat="dd/MM/yyyy"
+                minDate={new Date()}
+              />
+            </div>
+
+            {/* Multi-select dropdowns */}
+            {["colleges", "departments", "programs"].map((key) => (
+              <div key={key} className="relative">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Users className="w-4 h-4 inline mr-1" />
+                  {key.charAt(0).toUpperCase() + key.slice(1)} *
+                </label>
+                <div 
+                  onClick={() => toggleDropdown(key)} 
+                  className={`w-full px-3 py-2 border rounded-lg bg-white cursor-pointer focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors[key] ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                >
+                  {formData[key].length ? `${formData[key].length} selected` : `Select ${key}`}
+                </div>
+                {errors[key] && <p className="mt-1 text-sm text-red-600">{errors[key]}</p>}
+                
+                {dropdownOpen[key] && (
+                  <div className="absolute z-10 bg-white border rounded-lg shadow-lg w-full max-h-40 overflow-y-auto mt-1">
+                    <label className="flex items-center p-2 bg-gray-100 hover:bg-gray-200 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        onChange={() => toggleSelectAll(key, key === "colleges" ? colleges : key === "departments" ? departments : filteredPrograms)} 
+                        className="mr-2"
+                      />
+                      Select All
+                    </label>
+                    {(key === "colleges" ? colleges : key === "departments" ? departments : filteredPrograms).map((item) => (
+                      <label key={item._id} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={formData[key].includes(item._id)} 
+                          onChange={() => handleSelectionChange(item._id, key)} 
+                          className="mr-2"
+                        />
+                        {item.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Role */}
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Job Role
+              </label>
+              <textarea
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                placeholder="Enter job role details"
+                rows="3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Links */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Application Link
+              </label>
+              <input
+                type="url"
+                name="linkToApply"
+                value={formData.linkToApply}
+                onChange={handleChange}
+                placeholder="Enter application link"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                PDF Link
+              </label>
+              <input
+                type="url"
+                name="linkToPdf"
+                value={formData.linkToPdf}
+                onChange={handleChange}
+                placeholder="Enter PDF link"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="lg:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Job Description
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Enter detailed job description"
+                rows="4"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
 
-          {/* Job Title */}
-          <div>
-            <label className="block font-semibold text-gray-700">Job Title</label>
-            <input
-              type="text"
-              placeholder="Title"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              className="p-2 w-full border rounded"
-              required
-            />
+          {/* Action Buttons */}
+          <div className="mt-8 flex justify-end space-x-4">
+            <button 
+              type="button" 
+              onClick={handlePreview} 
+              className="flex items-center px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Preview
+            </button>
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Adding Job...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Job
+                </>
+              )}
+            </button>
           </div>
+        </form>
+      </div>
 
-          {/* Role */}
-          <div className="col-span-2">
-            <label className="block font-semibold text-gray-700">Role</label>
-            <textarea
-              type="text"
-              placeholder="Role"
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="p-2 w-full border rounded"
-            />
-          </div>
-          <div className="col-span-3">
-          <label className="block font-semibold text-gray-700">Descriptions</label>
-          <textarea name="description" value={formData.description} onChange={handleChange} className="p-2 w-full border rounded" rows="" ></textarea>
-        </div>
-
-
-          {/* Location */}
-          <div>
-            <label className="block font-semibold text-gray-700">Location</label>
-            <input
-              type="text"
-              placeholder="Location"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              className="p-2 w-full border rounded"
-            />
-          </div>
-
-          {/* CTC */}
-          <div>
-            <label className="block font-semibold text-gray-700">CTC (LPA)</label>
-            <input
-              type="text"
-              placeholder="CTC"
-              name="ctc"
-              value={formData.ctc}
-              onChange={handleChange}
-              className="p-2 w-full border rounded"
-              required
-            />
-          </div>
-
-          {/* Minimum Percentage */}
-          <div>
-            <label className="block font-semibold text-gray-700">Minimum Percentage</label>
-            <input
-              type="number"
-              placeholder="Min Percentage"
-              name="minPercentage"
-              value={formData.minPercentage}
-              onChange={handleChange}
-              className="p-2 w-full border rounded"
-
-            />
-          </div>
-
-          {/* Link to Apply */}
-          <div>
-            <label className="block font-semibold text-gray-700">Link to Apply(optional)</label>
-            <input
-              type="url"
-              placeholder="Link to Apply"
-              name="linkToApply"
-              value={formData.linkToApply}
-              onChange={handleChange}
-              className="p-2 w-full border rounded"
-            />
-          </div>
-
-          {/* Link to PDF */}
-          <div>
-            <label className="block font-semibold text-gray-700">Link to PDF(optional)</label>
-            <input
-              type="url"
-              placeholder="Link to PDF"
-              name="linkToPdf"
-              value={formData.linkToPdf}
-              onChange={handleChange}
-              className="p-2 w-full border rounded"
-            />
-          </div>
-
-
-          {/* Description */}
-
-
-          {/* Closing Date */}
-          <div>
-            <label className="block font-semibold text-gray-700">Closing Date</label>
-            <DatePicker selected={formData.closingDate} onChange={(date) => setFormData({ ...formData, closingDate: date })} className="p-2 w-full border rounded" />
-          </div>
-
-
-        </div>
-       
-        {/* Action Buttons */}
-        <div className="mt-4 flex justify-between">
-          <button type="button" onClick={handlePreview} className="bg-gray-500 text-white px-4 py-2 rounded">Preview</button>
-          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">Add Job</button>
-        </div>
-      </form>
-
-      {/* preview of the form */}
       {/* Preview Modal */}
       {showPreview && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-3/4 max-h-[80vh] overflow-auto">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Job Preview</h3>
-            <div className="space-y-2">
-              <p><strong>Title:</strong> {formData.title}</p>
-              <p><strong>Company:</strong> {formData.company}</p>
-              <p><strong>CTC:</strong> {formData.ctc} LPA</p>
-              <pre><strong>Role:</strong> {formData.role}</pre>
-              <p><strong>Type:</strong> {formData.type}</p>
-              <p><strong>Location:</strong> {formData.location}</p>
-              <p><strong>Min Percentage:</strong> {formData.minPercentage}%</p>
-              <p><strong>Link to Apply:</strong> {formData.linkToApply}</p>
-              <p><strong>Link to PDF:</strong> {formData.linkToPdf}</p>
-              <p><strong>Closing Date:</strong> {formData.closingDate.toLocaleDateString()}</p>
-              <pre><strong>Description:</strong> {formData.description}</pre>
-              <p><strong>Passing Year:</strong> {formData.passingYear}</p>
-
-              {/* College, Department, Program Preview */}
-              <p><strong>Colleges:</strong> {colleges.filter(college => formData.colleges.includes(college._id)).map(college => college.name).join(", ")}</p>
-              <p><strong>Departments:</strong> {filteredDepartments.filter(dept => formData.departments.includes(dept._id)).map(dept => dept.name).join(", ")}</p>
-
-              <p><strong>Programs:</strong> {filteredPrograms.filter(prog => formData.programs.includes(prog._id)).map(prog => prog.name).join(", ")}</p>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-gray-900">Job Preview</h3>
+                <button
+                  onClick={handlePreview}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
-            <div className="mt-4 text-right">
-              <button onClick={handlePreview} className="mt-4 bg-gray-500 text-white px-4 py-2 rounded">Close Preview</button>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Job Title</p>
+                    <p className="text-lg font-semibold">{formData.title || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Company</p>
+                    <p className="text-lg font-semibold">{formData.company || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">CTC</p>
+                    <p className="text-lg font-semibold">{formData.ctc ? `${formData.ctc} LPA` : "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Job Type</p>
+                    <p className="text-lg font-semibold">{formData.type || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Location</p>
+                    <p className="text-lg font-semibold">{formData.location || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Closing Date</p>
+                    <p className="text-lg font-semibold">{formData.closingDate.toLocaleDateString()}</p>
+                  </div>
+                </div>
+
+                {formData.description && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-2">Description</p>
+                    <p className="text-gray-800 whitespace-pre-wrap">{formData.description}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-2">Colleges</p>
+                    <p className="text-sm text-gray-800">
+                      {colleges.filter(college => formData.colleges.includes(college._id)).map(college => college.name).join(", ") || "None selected"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-2">Departments</p>
+                    <p className="text-sm text-gray-800">
+                      {departments.filter(dept => formData.departments.includes(dept._id)).map(dept => dept.name).join(", ") || "None selected"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-2">Programs</p>
+                    <p className="text-sm text-gray-800">
+                      {filteredPrograms.filter(prog => formData.programs.includes(prog._id)).map(prog => prog.name).join(", ") || "None selected"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={handlePreview}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Close Preview
+              </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };
 
 export default JobForm;
-
-

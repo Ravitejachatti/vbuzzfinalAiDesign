@@ -13,6 +13,26 @@ import {
   selectSingleError,
 } from "../../../Redux/Placement/student/singleStudentadd";
 import { fetchStudents ,selectStudentsLoading} from "../../../Redux/Placement/StudentsSlice";
+import { 
+  Users, 
+  Download, 
+  Search, 
+  Filter, 
+  Edit, 
+  Trash2, 
+  X, 
+  Save, 
+  User, 
+  Mail, 
+  Phone, 
+  Calendar, 
+  GraduationCap, 
+  Building,
+  CheckCircle,
+  XCircle,
+  Eye,
+  FileText
+} from "lucide-react";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -50,6 +70,7 @@ const StudentList = () => {
   const [selectedColumns, setSelectedColumns] = useState([]); // Default all selected
   const { universityName } = useParams();
   const token = localStorage.getItem("University authToken");
+    const [selectedStudentIds, setSelectedStudentIds] = useState([]);
 
   // Get from Redux store
   const colleges = useSelector((state) => state.colleges.colleges) || [];
@@ -58,6 +79,18 @@ const StudentList = () => {
   const students = useSelector((state) => state.students.students) || [];
   const loading  = useSelector(selectStudentsLoading);
   const singleError = useSelector(selectSingleError);
+
+  const getCollegeName = (collegeId) => {
+  const college = colleges.find((c) => c._id === collegeId);
+  return college ? college.name : "N/A";
+};
+
+const getDepartmentName = (departmentId) => {
+  const dept = departments.find((d) => d._id === departmentId);
+  return dept ? dept.name : "N/A";
+};
+
+const singleStudentStatus = useSelector(selectSingleStatus);
   
 
   // derive graduationYears from the student objects
@@ -325,364 +358,489 @@ const StudentList = () => {
   }
 
   return (
-    <>
-      <div>
-        <h1 className="text-2xl font-semibold my-2 text-center underline">Student Management</h1>
-        <h2 className=""><strong>Student List:</strong>=({totalStudents})</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          {/* Graduation Year Dropdown */}
-          <select
-            name="graduationYear"
-            value={filters.graduationYear}
-            onChange={handleFilterChange}
-            className="p-1 border rounded"
-          >
-            <option value="">Select Graduation Year</option>
-            {graduationYears.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-
-          {/* Colleges Dropdown */}
-          <select
-            name="college"
-            value={filters.college}
-            onChange={handleFilterChange}
-            className="p-1 border rounded"
-          >
-            <option value="">Select College</option>
-            {colleges.map((college) => (
-              <option key={college._id} value={college._id}>
-                {college.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Departments Dropdown */}
-          <select
-            name="department"
-            value={filters.department}
-            onChange={handleFilterChange}
-            className="p-1 border rounded"
-          >
-            <option value="">Select Department</option>
-            {departments
-              .filter((department) => department.college === filters.college) // ✅ Show only departments of selected college
-              .map((department) => (
-                <option key={department._id} value={department._id}>
-                  {department.name}
-                </option>
-              ))}
-          </select>
-          {/* Programs Dropdown */}
-          <select
-            name="programId"
-            value={filters.programId}
-            onChange={handleFilterChange}
-            className="p-1 border rounded"
-          >
-            <option value="">Select Program</option>
-            {programs
-              // only show programs belonging to the selected department
-              .filter((program) =>
-                !filters.department ||
-                // compare against the nested department._id
-                program.department?._id === filters.department
-              )
-              .map((program) => (
-                <option key={program._id} value={program._id}>
-                  {program.name}
-                </option>
-              ))}
-          </select>
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-8 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Student Management</h1>
+            <p className="text-blue-100 text-lg">Manage and monitor all student records</p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold">{totalStudents}</div>
+            <div className="text-blue-200 text-sm">Total Students</div>
+          </div>
         </div>
-        {/* Add Search Bar */}
-        <div className="flex flex-col sm:flex-row gap-10 mb-4">
+      </div>
+
+      {/* Filters and Search Section */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+        <div className="flex items-center mb-6">
+          <Filter className="w-5 h-5 text-gray-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">Filters & Search</h2>
+        </div>
+
+        {/* Filters Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Calendar className="w-4 h-4 inline mr-1" />
+              Graduation Year
+            </label>
+            <select
+              name="graduationYear"
+              value={filters.graduationYear}
+              onChange={handleFilterChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Years</option>
+              {graduationYears.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Building className="w-4 h-4 inline mr-1" />
+              College
+            </label>
+            <select
+              name="college"
+              value={filters.college}
+              onChange={handleFilterChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Colleges</option>
+              {colleges.map((college) => (
+                <option key={college._id} value={college._id}>{college.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+            <select
+              name="department"
+              value={filters.department}
+              onChange={handleFilterChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Departments</option>
+              {departments
+                .filter((department) => department.college === filters.college)
+                .map((department) => (
+                  <option key={department._id} value={department._id}>{department.name}</option>
+                ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <GraduationCap className="w-4 h-4 inline mr-1" />
+              Program
+            </label>
+            <select
+              name="programId"
+              value={filters.programId}
+              onChange={handleFilterChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Programs</option>
+              {programs
+                .filter((program) => program.department === filters.department)
+                .map((program) => (
+                  <option key={program._id} value={program._id}>{program.name}</option>
+                ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1">
-            <div className="flex items-center border rounded overflow-hidden">
+            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
               <select
                 value={searchType}
                 onChange={handleSearchTypeChange}
-                className="px-3 py-3 border-r bg-gray-100 mr-3"
+                className="px-3 py-3 border-r border-gray-300 bg-gray-50 text-sm"
               >
                 <option value="name">Search by Name</option>
                 <option value="registration">Search by Registration No.</option>
               </select>
-              <input
-                type="text"
-                placeholder={`Search by ${searchType === 'name' ? 'Name' : 'Registration No.'}...`}
-                value={searchTerm}
-                onChange={handleSearch}
-                className="flex-1 p-2 "
-              />
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder={`Search by ${searchType === 'name' ? 'Name' : 'Registration No.'}...`}
+                  value={searchTerm}
+                  onChange={handleSearch}
+                  className="w-full pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="p-3 text-gray-500 hover:text-gray-700"
+                  className="p-3 text-gray-500 hover:text-gray-700 transition-colors"
                 >
-                  ×
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
           </div>
         </div>
-        <div className="flex flex-col mb-4">
-          <label className="font-semibold mb-2">Select Columns to Export:</label>
-          <Select
-            isMulti
-            options={allColumns}
-            value={selectedColumns}
-            onChange={(selected) => setSelectedColumns(selected)}
-            placeholder="Select columns..."
-            className="w-full"
-          />
-        </div>
 
-
-        <div className="flex justify-start mb-4">
+        {/* Export Section */}
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-end">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <FileText className="w-4 h-4 inline mr-1" />
+              Select Columns to Export
+            </label>
+            <Select
+              isMulti
+              options={allColumns}
+              value={selectedColumns}
+              onChange={(selected) => setSelectedColumns(selected)}
+              placeholder="Select columns..."
+              className="text-sm"
+            />
+          </div>
           <button
             onClick={downloadExcel}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded text-sm"
+            className="flex items-center bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors"
           >
+            <Download className="w-4 h-4 mr-2" />
             Download Excel
           </button>
         </div>
+      </div>
+
+      {/* Bulk Actions */}
+      {selectedStudentIds.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+          <ToggleEligibility
+            selectedStudents={students.filter((s) => selectedStudentIds.includes(s._id))}
+            onStatusUpdate={(updatedStudents) => {
+              updatedStudents.forEach(student => {
+                handleStatusUpdate(student._id, student.canApply);
+              });
+              setSelectedStudentIds([]);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Students Table */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Students List</h2>
+            <span className="text-sm text-gray-600">{totalStudents} students</span>
+          </div>
+        </div>
 
         <div className="overflow-x-auto">
-          {/* Table for displaying students */}
-          <table className="min-w-full border border-gray-300">
-            <thead className="bg-gray-100">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="border px-1 text-2xs text-right">#</th>
-                <th className="border px-1 text-2xs text-left">Registration</th>
-                <th className="border px-1 text-2xs text-left">Name</th>
-                <th className="border px-1 text-2xs text-left">Email</th>
-                <th className="border px-1 text-2xs text-left">Phone</th>
-                <th className="border px-1 text-2xs text-left">DOB</th>
-                <th className="border px-1 text-2xs text-left">Age</th>
-                <th className="border px-1 text-2xs text-left">Gender</th>
-                <th className="border px-1 text-2xs text-left">caste</th>
-                <th className="border px-1 text-2xs text-left">College</th>
-                <th className="border px-1 text-2xs text-left">Department</th>
-                <th className="border px-1 text-2xs text-left">program</th>
-                <th className="border px-1 text-2xs text-left">Graduation_Year</th>
-                <th className="border px-1 text-2xs text-left">10th School Name</th>
-                <th className="border px-1 text-2xs text-left">10th CGPA</th>
-                <th className="border px-1 text-2xs text-left">12th School Name</th>
-                <th className="border px-1 text-2xs text-left">12th Branch</th>
-                <th className="border px-1 text-2xs text-left">12th CGPA</th>
-                <th className="border px-1 text-2xs text-left">UG college</th>
-                <th className="border px-1 text-2xs text-left">UG Degree Name</th>
-                <th className="border px-1 text-2xs text-left">UG CGPA</th>
-                <th className="border px-1 text-2xs text-left">UG-Project title</th>
-                <th className="border px-1 text-2xs text-left">UG-Project organization</th>
-                <th className="border px-1 text-2xs text-left">Masters College Name</th>
-                <th className="border px-1 text-2xs text-left">Masters Specialization</th>
-                <th className="border px-1 text-2xs text-left">Masters CGPA</th>
-
-
-                <th className="border px-1 text-2xs text-left">canApply</th>
-                <th className="border px-1 text-2xs text-left">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Personal</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Education</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <input
+                    type="checkbox"
+                    checked={
+                      selectedStudentIds.length === filteredStudents.length &&
+                      filteredStudents.length > 0
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedStudentIds(filteredStudents?.map((s) => s._id));
+                      } else {
+                        setSelectedStudentIds([]);
+                      }
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {filteredStudents?.length > 0 ? (
                 filteredStudents.map((student, index) => (
-                  <tr key={student._id} className="border-b">
-                    <td className="border px-1 text-2xs  text-right">{index + 1}.</td>
-                    <td className="border px-1 text-2xs ">{student?.registered_number}</td>
-                    <td className="border px-1 text-2xs">{student?.name}</td>
-                    <td className="border px-1 text-2xs">{student?.email}</td>
-                    <td className="border px-1 text-2xs">{student?.phone}</td>
-                    <td className="border px-1 text-2xs">{formatDate(student?.dateOfBirth)}</td>
-                    <td className="border px-1 text-xs">{calculateAge(student?.dateOfBirth)}</td>
-                    <td className="border px-1 text-2xs">{student?.gender}</td>
-                    <td className="border px-1 text-2xs">{student?.caste}</td>
-                    <td className="border px-1 text-2xs">
-                      {colleges.find((college) => college._id === student.collegeId)?.name}
+                  <tr key={student._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {index + 1}
                     </td>
-                    <td className="border px-1 text-2xs">
-                      {departments.find((department) => department._id === student.departmentId)?.name}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <User className="w-5 h-5 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{student?.name}</div>
+                          <div className="text-sm text-gray-500">{student?.registered_number}</div>
+                        </div>
+                      </div>
                     </td>
-                    <td className="border px-1 text-2xs">
-                      {getProgramName(student.programId)} {/* Display program name instead of ID */}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="flex items-center mb-1">
+                          <Mail className="w-3 h-3 mr-1 text-gray-400" />
+                          <span className="truncate max-w-[150px]">{student?.email}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Phone className="w-3 h-3 mr-1 text-gray-400" />
+                          {student?.phone}
+                        </div>
+                      </div>
                     </td>
-                    <td className="border px-1  text-2xs">{student.graduation_year}</td>
-                    <td className="border px-1 text-2xs">{student.tenth?.institutionName
-                    }</td>
-                    <td className="border px-2 py-1 text-2xs">{student.tenth?.percentageOrCGPA}</td>
-                    <td className="border px-1 text-2xs">{student.twelfth?.institutionName
-                    }</td>
-                    <td className="border px-1 text-2xs">{student.twelfth?.stream
-                    }</td>
-                    <td className="border px-1 text-2xs">{student.twelfth?.percentageOrCGPA}</td>
-                    <td className="border px-1 text-2xs">{student.bachelors?.institutionName
-                    }</td>
-                    <td className="border px-1 text-2xs">{student.bachelors?.degree
-                    }</td>
-                    <td className="border px-1 py-1 text-2xs">{student.bachelors?.percentageOrCGPA}</td>
-                    <td className="border px-1 text-2xs">{student.academicProjects[0]?.description}</td>
-                    <td className="border px-1 text-2xs">{student.academicProjects[0]?.level
-                    }</td>
-                    <td className="border px-1 text-2xs">{student.masters?.institutionName}</td>
-                    <td className="border px-1 text-2xs">{student.masters?.degree}</td>
-                    <td className="border px-1 py-1 text-2xs">{student.masters?.percentageOrCGPA}</td>
-                    <td className="border px-1 text-2xs">{student.canApply ? "true" : "false"}</td>
-                    <td className="border px-1 text-2xs">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="font-medium">{formatDate(student?.dateOfBirth)}</div>
+                        <div className="text-gray-500">Age: {calculateAge(student?.dateOfBirth)}</div>
+                        <div className="text-gray-500">{student?.gender}</div>
+                        <div className="text-gray-500">{student?.caste}</div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="font-medium">{colleges.find((college) => college._id === student.collegeId)?.name}</div>
+                        <div className="text-gray-500">{departments.find((department) => department._id === student.departmentId)?.name}</div>
+                        <div className="text-gray-500">{getProgramName(student.programId)}</div>
+                        <div className="text-gray-500">Class of {student.graduation_year}</div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="mb-1">
+                          <span className="font-medium">10th:</span> {student.tenth?.percentageOrCGPA}
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-medium">12th:</span> {student.twelfth?.percentageOrCGPA}
+                        </div>
+                        <div className="mb-1">
+                          <span className="font-medium">UG:</span> {student.bachelors?.percentageOrCGPA}
+                        </div>
+                        {student.masters?.percentageOrCGPA && (
+                          <div>
+                            <span className="font-medium">Masters:</span> {student.masters?.percentageOrCGPA}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {student.canApply ? (
+                          <div className="flex items-center text-green-600">
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            <span className="text-sm font-medium">Eligible</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-red-600">
+                            <XCircle className="w-4 h-4 mr-1" />
+                            <span className="text-sm font-medium">Ineligible</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEditClick(student)}
-                          className="bg-yellow-500 text-white px-1 rounded text-2xs"
+                          className="flex items-center bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1.5 rounded-lg transition-colors"
                         >
-                          Edit
+                          <Edit className="w-3 h-3 mr-1" />
+                          <span className="text-xs">Edit</span>
                         </button>
                         <button
                           onClick={() => handleDelete(student._id)}
-                          className="bg-red-500 text-white px-2  rounded text-2xs"
+                          className="flex items-center bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg transition-colors"
                         >
-                          Delete
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          <span className="text-xs">Delete</span>
                         </button>
                       </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedStudentIds.includes(student._id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedStudentIds((prev) => [...prev, student._id]);
+                          } else {
+                            setSelectedStudentIds((prev) =>
+                              prev.filter((id) => id !== student._id)
+                            );
+                          }
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="9" className="text-center py-4">
-                    No students available
+                  <td colSpan="9" className="px-4 py-12 text-center text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium">No students found</p>
+                    <p className="text-sm">Try adjusting your filters or search terms</p>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+      </div>
 
-          {/* Popup/Modal for editing student */}
-          {editingStudentId && (
-            <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center">
-              <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
-
-                {/* Modal status */}
-                {status === "pending" && (
-                  <p className="text-blue-600 mb-4">Saving changes…</p>
-                )}
-                {status === "failed" && singleError && (
-                  <p className="text-red-600 mb-4">Update failed: {singleError}</p>
-                )}
-                <form onSubmit={handleEditSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="col-span-1">
-                    <label className="block font-medium mb-1">canApply</label>
-                    <input
-                      type="boolean"
-                      name="canApply"
-                      value={editFormData.canApply}
-                      onChange={handleEditChange}
-                      className="w-full p-2 border rounded"
-                      required
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block font-medium mb-1">Name</label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={editFormData.name}
-                      onChange={handleEditChange}
-                      className="w-full p-2 border rounded"
-                      required
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block font-medium mb-1">Email</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={editFormData.email}
-                      onChange={handleEditChange}
-                      className="w-full p-2 border rounded"
-                      required
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block font-medium mb-1">Registered Number</label>
-                    <input
-                      type="text"
-                      name="registered_number"
-                      value={editFormData.registered_number}
-                      onChange={handleEditChange}
-                      className="w-full p-2 border rounded"
-                      required
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block font-medium mb-1">Phone</label>
-                    <input
-                      type="number"
-                      name="phone"
-                      value={editFormData.phone}
-                      onChange={handleEditChange}
-                      className="w-full p-2 border rounded"
-                      required
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block font-medium mb-1">Graduation Year</label>
-                    <input
-                      type="number"
-                      name="graduation_year"
-                      value={editFormData.graduation_year}
-                      onChange={handleEditChange}
-                      className="w-full p-2 border rounded"
-                      required
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block font-medium mb-1">User Name</label>
-                    <input
-                      type="text"
-                      name="username"
-                      value={editFormData.username}
-                      onChange={handleEditChange}
-                      className="w-full p-2 border rounded"
-                      required
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block font-medium mb-1">New Password (optional)</label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={editFormData.password}
-                      onChange={handleEditChange}
-                      className="w-full p-2 border rounded"
-                      placeholder="Enter new password"
-                    />
-                  </div>
-                  <div className="col-span-1 md:col-span-2 flex justify-end space-x-2">
-                    <button
-                      type="submit"
-                      className="bg-green-500 text-white px-1 py-1 rounded"
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      className="bg-gray-500 text-white px-1 py-1 rounded"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
+      {/* Edit Modal */}
+      {editingStudentId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Edit Student</h2>
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
             </div>
-          )}
+            
+            <form onSubmit={handleEditSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Can Apply</label>
+                  <select
+                    name="canApply"
+                    value={editFormData.canApply}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="">Select</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={editFormData.name}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={editFormData.email}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Registration Number</label>
+                  <input
+                    type="text"
+                    name="registered_number"
+                    value={editFormData.registered_number}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={editFormData.phone}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Graduation Year</label>
+                  <input
+                    type="number"
+                    name="graduation_year"
+                    value={editFormData.graduation_year}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                  <input
+                    type="text"
+                    name="username"
+                    value={editFormData.username}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">New Password (optional)</label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={editFormData.password}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter new password"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-
-      </div>
-    </>
+      )}
+    </div>
   );
 };
 

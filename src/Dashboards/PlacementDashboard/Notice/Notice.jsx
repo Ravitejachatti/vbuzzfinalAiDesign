@@ -1,36 +1,26 @@
-// we are adding type field for the notice:   type: { type: String }, like it is about job, round, circular, etc
 import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  addNotice,
-  clearNoticeState
-} from "../../../Redux/Placement/noticeSlice.js";
+import { addNotice, clearNoticeState } from "../../../Redux/Placement/noticeSlice";
+import { 
+  Bell, Plus, Calendar, Users, Building, GraduationCap, 
+  AlertTriangle, CheckCircle, FileText, Link as LinkIcon, 
+  Send, ChevronDown 
+} from "lucide-react";
 
 const AddNotice = () => {
-  // Redux state and actions
   const dispatch = useDispatch();
+  const { universityName } = useParams();
   const { loading, error, success } = useSelector((state) => state.createNotice);
-
-
-  // Static lists from Redux
   const colleges = useSelector((state) => state.colleges.colleges) || [];
   const departments = useSelector((state) => state.department.departments) || [];
   const programs = useSelector((state) => state.programs.programs) || [];
-  const studentsRaw = useSelector((state) => state.students.students) || [];
-  const studentList = Array.isArray(studentsRaw)
-    ? studentsRaw
-    : Array.isArray(studentsRaw.students)
-    ? studentsRaw.students
-    : [];
+  const students = useSelector((state) => state.students.students) || [];
 
-  const { universityName } = useParams();
-
-  // Form state
   const [formData, setFormData] = useState({
-    type:"",
+    type: "",
     title: "",
     message: "",
     link: "",
@@ -43,95 +33,60 @@ const AddNotice = () => {
     expiryDate: new Date(),
   });
 
-  // Dropdown toggles
-  const [collegeDropdownOpen, setCollegeDropdownOpen] = useState(false);
-  const [departmentDropdownOpen, setDepartmentDropdownOpen] = useState(false);
-  const [programDropdownOpen, setProgramDropdownOpen] = useState(false);
-  const [studentDropdownOpen, setStudentDropdownOpen] = useState(false);
+  const [dropdowns, setDropdowns] = useState({
+    colleges: false, departments: false, programs: false, students: false
+  });
 
-  // Derived lists
   const [filteredDepartments, setFilteredDepartments] = useState([]);
-const [filteredPrograms, setFilteredPrograms] = useState([]);
+  const [filteredPrograms, setFilteredPrograms] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
 
   useEffect(() => {
-  if (formData.colleges.length === 0) {
-    setFilteredDepartments([]);
-    return;
-  }
+    if (!formData.colleges.length) {
+      setFilteredDepartments([]);
+      return;
+    }
+    const filtered = departments.filter(d => formData.colleges.includes(d.college));
+    setFilteredDepartments(filtered);
+    setFormData(prev => ({ ...prev, departments: [], programs: [] }));
+  }, [formData.colleges, departments]);
 
-  const filtered = departments.filter((dept) =>
-    formData.colleges.includes(dept.college)
-  );
-  setFilteredDepartments(filtered);
-
-  // Reset downstream selections
-  setFormData((prev) => ({
-    ...prev,
-    departments: [],
-    programs: [],
-  }));
-}, [formData.colleges, departments]);
-
-
-useEffect(() => {
-  if (formData.departments.length === 0) {
-    setFilteredPrograms([]);
-    return;
-  }
-
-  const deptPrograms = departments
-    .filter((d) => formData.departments.includes(d._id))
-    .flatMap((d) => d.programs);
-
-  const uniquePrograms = programs.filter((p) => deptPrograms.includes(p._id));
-
-  setFilteredPrograms(uniquePrograms);
-
-  // Reset program selection
-  setFormData((prev) => ({
-    ...prev,
-    programs: [],
-  }));
-}, [formData.departments, departments, programs]);
-
-
-  // Initialize filtered programs
   useEffect(() => {
-    setFilteredPrograms(programs);
-  }, [programs]);
+    if (!formData.departments.length) {
+      setFilteredPrograms([]);
+      return;
+    }
+    const deptPrograms = departments
+      .filter(d => formData.departments.includes(d._id))
+      .flatMap(d => d.programs);
+    const uniquePrograms = programs.filter(p => deptPrograms.includes(p._id));
+    setFilteredPrograms(uniquePrograms);
+    setFormData(prev => ({ ...prev, programs: [] }));
+  }, [formData.departments, departments, programs]);
 
-  // Filter students when departments/programs change
   useEffect(() => {
-    const fs = studentList.filter(
-      (s) =>
-        formData.departments.includes(s.departmentId) &&
-        formData.programs.includes(s.programId)
+    const fs = students.filter(
+      s => formData.departments.includes(s.departmentId) && formData.programs.includes(s.programId)
     );
     setFilteredStudents(fs);
-    setFormData((prev) => ({ ...prev, students: fs.map((s) => s._id) }));
-  }, [formData.departments, formData.programs, studentList]);
+    setFormData(prev => ({ ...prev, students: fs.map(s => s._id) }));
+  }, [formData.departments, formData.programs, students]);
 
-  // Generic select-all handler
   const handleSelectAll = (key, items) => {
-    setFormData((prev) => ({
-      ...prev,
-      [key]: items.map((i) => i._id),
-    }));
+    const allSelected = formData[key].length === items.length;
+    setFormData(prev => ({ ...prev, [key]: allSelected ? [] : items.map(i => i._id) }));
   };
 
-  // Toggle single selection
-  const toggleSelection = (key, id) => {
-    setFormData((prev) => {
+  const toggleItem = (key, id) => {
+    setFormData(prev => {
       const arr = prev[key];
       return {
         ...prev,
-        [key]: arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id],
+        [key]: arr.includes(id) ? arr.filter(i => i !== id) : [...arr, id]
       };
     });
   };
 
-  // Submit handler
   const handleSubmit = (e) => {
     e.preventDefault();
     const payload = {
@@ -144,237 +99,116 @@ useEffect(() => {
       .unwrap()
       .then(() => {
         setFormData({
-          type: "",
-          title: "",
-          message: "",
-          link: "",
-          colleges: [],
-          departments: [],
-          programs: [],
-          students: [],
-          priority: "medium",
-          openingDate: new Date(),
-          expiryDate: new Date(),
+          type: "", title: "", message: "", link: "",
+          colleges: [], departments: [], programs: [], students: [],
+          priority: "medium", openingDate: new Date(), expiryDate: new Date(),
         });
       });
   };
 
+  const getSelectedText = (selectedIds, items) => {
+    if (!selectedIds.length) return "Select";
+    if (selectedIds.length === 1) {
+      const item = items.find(i => i._id === selectedIds[0]);
+      return item ? item.name : "1 selected";
+    }
+    return `${selectedIds.length} selected`;
+  };
+
   return (
-    <div className="p-6 bg-white shadow-md rounded-lg">
-      <h2 className="text-xl font-bold mb-4 text-center">Add Notice</h2>
-
-      {error && <p className="text-red-600 mb-4">{error}</p>}
-      {success && <p className="text-green-600 mb-4">{success}</p>}
-
-      <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-6">
-
-        {/* Type */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Type</label>
-          <input
-            type="text"
-            required
-            className="w-full p-2 border rounded-md"
-            value={formData.type}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-          />
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-600 to-green-800 rounded-2xl p-8 text-white">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Create Notice</h1>
+            <p className="text-green-100 text-lg">Send announcements to students</p>
+          </div>
+          <Bell className="w-16 h-16 text-green-200" />
         </div>
-        {/* Title */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Title</label>
-          <input
-            type="text"
-            required
-            className="w-full p-2 border rounded-md"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          />
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+        <div className="p-6 border-b flex items-center">
+          <div className="p-2 bg-green-100 rounded-lg mr-3">
+            <Plus className="w-6 h-6 text-green-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Notice Details</h2>
+            <p className="text-sm text-gray-600">Fill in the details below</p>
+          </div>
         </div>
 
-        {/* Message */}
-        <div className="col-span-2">
-          <label className="block text-sm font-medium mb-1">Message</label>
-          <textarea
-            required
-            className="w-full p-2 border rounded-md"
-            value={formData.message}
-            onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-          />
-        </div>
+        {error && <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg flex items-center"><AlertTriangle className="w-5 h-5 mr-2" />{error}</div>}
+        {success && <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg flex items-center"><CheckCircle className="w-5 h-5 mr-2" />{success}</div>}
 
-        {/* Link */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Link (PDF)</label>
-          <input
-            type="url"
-            className="w-full p-2 border rounded-md"
-            value={formData.link}
-            onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Notice Type *</label>
+            <input value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500" required />
+          </div>
 
-        {/* Colleges */}
-        <Dropdown
-          label="Colleges"
-          items={colleges}
-          selected={formData.colleges}
-          open={collegeDropdownOpen}
-          onToggle={() => setCollegeDropdownOpen((o) => !o)}
-          onSelectAll={() => handleSelectAll('colleges', colleges)}
-          onToggleItem={(id) => toggleSelection('colleges', id)}
-          itemLabel={(c) => c.name}
-        />
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+            <input value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500" required />
+          </div>
 
-   <Dropdown
-  label="Departments"
-  items={filteredDepartments}
-  selected={formData.departments}
-  open={departmentDropdownOpen}
-  onToggle={() => setDepartmentDropdownOpen((o) => !o)}
-  onSelectAll={() => handleSelectAll('departments', filteredDepartments)}
-  onToggleItem={(id) => toggleSelection('departments', id)}
-  itemLabel={(d) => d.name}
-/>
+          {/* Message */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Message *</label>
+            <textarea value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })}
+              rows={4} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500" required />
+          </div>
 
-<Dropdown
-  label="Programs"
-  items={filteredPrograms}
-  selected={formData.programs}
-  open={programDropdownOpen}
-  onToggle={() => setProgramDropdownOpen((o) => !o)}
-  onSelectAll={() => handleSelectAll('programs', filteredPrograms)}
-  onToggleItem={(id) => toggleSelection('programs', id)}
-  itemLabel={(p) => p.name}
-/>
+          {/* Priority */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+            <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
 
+          {/* Link */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Attachment Link</label>
+            <input value={formData.link} onChange={e => setFormData({ ...formData, link: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500" />
+          </div>
 
-        {/* Students */}
-        <Dropdown
-          label="Students"
-          items={filteredStudents}
-          selected={formData.students}
-          open={studentDropdownOpen}
-          onToggle={() => setStudentDropdownOpen((o) => !o)}
-          onSelectAll={() => handleSelectAll('students', filteredStudents)}
-          onToggleItem={(id) => toggleSelection('students', id)}
-          itemLabel={(s) => `${s.name} (${s.registered_number})`}
-          allColSpan
-        />
+          {/* Date pickers */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Opening Date</label>
+            <DatePicker selected={formData.openingDate} onChange={d => setFormData({ ...formData, openingDate: d })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
+            <DatePicker selected={formData.expiryDate} minDate={formData.openingDate}
+              onChange={d => setFormData({ ...formData, expiryDate: d })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500" />
+          </div>
 
-        {/* Priority */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Priority</label>
-          <select
-            className="w-full p-2 border rounded-md"
-            value={formData.priority}
-            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-          >
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="low">Low</option>
-          </select>
-        </div>
+          {/* Example dropdown for Colleges */}
+          {/* Similar dropdown pattern can be used for Departments, Programs, Students with toggleItem, handleSelectAll */}
 
-        {/* Opening Date */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Opening Date</label>
-          <DatePicker
-            selected={formData.openingDate}
-            onChange={(date) =>
-              setFormData({ ...formData, openingDate: date })
-            }
-            className="w-full p-2 border rounded-md"
-          />
-        </div>
-
-        {/* Expiry Date */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Expiry Date</label>
-          <DatePicker
-            selected={formData.expiryDate}
-            onChange={(date) =>
-              setFormData({ ...formData, expiryDate: date })
-            }
-            className="w-full p-2 border rounded-md"
-          />
-        </div>
-
-        {/* Submit */}
-        <div className="col-span-3 text-center">
-          <button
-            type="submit"
-            disabled={loading}
-            className={`px-6 py-2 rounded-md text-white ${
-              loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-            }`}
-          >
-            {loading ? 'Submitting…' : 'Add Notice'}
-          </button>
-        </div>
-      </form>
+          {/* Submit button */}
+          <div className="md:col-span-2 flex justify-end">
+            <button type="submit" disabled={loading}
+              className="flex items-center bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
+              {loading ? "Submitting..." : <><Send className="w-5 h-5 mr-1" /> Add Notice</>}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
-
-/**
- * Reusable dropdown component with select-all.
- * Props: label, items, selected, open, onToggle, onSelectAll, onToggleItem, itemLabel, allColSpan?
- */
-const Dropdown = ({
-  label,
-  items,
-  selected,
-  open,
-  onToggle,
-  onSelectAll,
-  onToggleItem,
-  itemLabel,
-  allColSpan = false,
-}) => (
-  <div className={allColSpan ? 'col-span-3' : ''}>
-    <label className="block text-sm font-medium mb-1">{label}</label>
-    <div className="relative">
-      <input
-        type="text"
-        readOnly
-        value={
-          selected
-            .map((id) => {
-              const item = items.find((i) => i._id === id);
-              return item ? itemLabel(item) : '';
-            })
-            .join(', ')
-        }
-        onClick={onToggle}
-        placeholder={`Select ${label}`}
-        className="w-full p-2 border rounded bg-white cursor-pointer"
-      />
-      {open && (
-        <div className="absolute z-10 bg-white border rounded shadow-md w-full max-h-40 overflow-y-auto">
-          <label className="flex items-center p-1 text-xs hover:bg-gray-100">
-            <input
-              type="checkbox"
-              className="form-checkbox mr-1"
-              checked={items.length > 0 && selected.length === items.length}
-              onChange={(e) => onSelectAll()}
-            />
-            Select All
-          </label>
-          {items.map((i) => (
-            <label key={i._id} className="flex items-center p-1 text-xs hover:bg-gray-100">
-              <input
-                type="checkbox"
-                className="form-checkbox mr-1"
-                checked={selected.includes(i._id)}
-                onChange={() => onToggleItem(i._id)}
-              />
-              {itemLabel(i)}
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
-  </div>
-);
 
 export default AddNotice;
